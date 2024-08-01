@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Generate Json Anggaran</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</head>
+<body>
+<div class="container mt-5">
+    <h1 class="text-center">Generate Json Anggaran</h1>
+    <form id="anggaranForm">
+        <div class="form-group">
+            <label for="fileAnggaran">File Anggaran (hasil export API Kemendagri)</label>
+            <input type="file" class="form-control" id="fileAnggaran" name="fileAnggaran" required>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="submitForm()">Submit</button>
+        <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear</button>
+    </form>
+    <table class="table mt-5" id="uploadsTable">
+        <thead>
+        <tr>
+            <th>Nama File</th>
+            <th>Aksi</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- Rows will be populated here by JavaScript -->
+        </tbody>
+    </table>
+</div>
+
+<script type="text/javascript">
+    function submitForm() {
+        let form = document.getElementById('anggaranForm');
+        let formData = new FormData(form);
+
+        fetch('api/v1/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+                alert('Form submitted successfully!');
+                fetchUploads(); // Refresh the uploads table after form submission
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error submitting form.');
+            });
+    }
+
+    function clearForm() {
+        document.getElementById('anggaranForm').reset();
+    }
+
+    function fetchUploads() {
+        fetch('api/v1/anggarans')
+            .then(response => response.json())
+            .then(data => {
+                let tableBody = document.querySelector('#uploadsTable tbody');
+                tableBody.innerHTML = ''; // Clear existing table rows
+
+                data.data.forEach(upload => {
+                    let row = document.createElement('tr');
+
+                    let fileNameCell = document.createElement('td');
+                    fileNameCell.textContent = upload.fileName;
+                    row.appendChild(fileNameCell);
+
+                    let actionCell = document.createElement('td');
+
+                    let convertButton = document.createElement('button');
+                    convertButton.className = 'btn btn-primary mr-2';
+                    convertButton.textContent = 'Convert';
+                    convertButton.onclick = () => openConvertModal(upload.fileName);
+                    actionCell.appendChild(convertButton);
+
+                    let deleteButton = document.createElement('button');
+                    deleteButton.className = 'btn btn-danger';
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.onclick = () => deleteFile(upload.fileName);
+                    actionCell.appendChild(deleteButton);
+
+                    row.appendChild(actionCell);
+                    tableBody.appendChild(row);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching uploads:', error);
+            });
+    }
+
+    function openConvertModal(fileName) {
+        document.getElementById('fileNameToConvert').value = fileName;
+        $('#convertModal').modal('show');
+    }
+
+    function processFilter() {
+        let fileName = document.getElementById('fileNameToConvert').value;
+        let dinasName = document.getElementById('dinasName').value;
+        let year = document.getElementById('year').value;
+
+        // Construct the URL as specified
+        let url = `api/v1/anggarans/${fileName}?dinasName=${encodeURIComponent(dinasName)}&year=${encodeURIComponent(year)}`;
+        window.open(url, '_blank');
+    }
+
+    function deleteFile(fileName) {
+        if (confirm('Are you sure you want to delete this file?')) {
+            fetch(`api/v1/anggarans?fileName=${fileName}`, {
+                method: 'DELETE'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Delete Success:', data);
+                    alert('File deleted successfully!');
+                    fetchUploads(); // Refresh the uploads table after file deletion
+                })
+                .catch(error => {
+                    console.error('Error deleting file:', error);
+                    alert('Error deleting file.');
+                });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchUploads);
+
+</script>
+
+<!-- Modal -->
+<div class="modal fade" id="convertModal" tabindex="-1" role="dialog" aria-labelledby="convertModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="convertModalLabel">Convert File</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="convertForm">
+                    <div class="form-group">
+                        <label for="dinasName">Nama Dinas</label>
+                        <input type="text" class="form-control" id="dinasName" name="dinasName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="year">Tahun Anggaran</label>
+                        <input type="number" class="form-control" id="year" name="year" required>
+                    </div>
+                    <input type="hidden" id="fileNameToConvert" name="fileNameToConvert">
+                    <button type="button" class="btn btn-primary" onclick="processFilter()">Proses Filter</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
